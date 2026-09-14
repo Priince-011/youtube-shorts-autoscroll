@@ -4,6 +4,7 @@ let isAutoScrollEnabled = false;
 let videoEndListener = null;
 let videoMonitorInterval = null;
 let lastVideoElement = null;
+let scrollAttemptCount = 0;
 
 console.log('Content script loaded');
 
@@ -37,17 +38,14 @@ function stopAutoScroll() {
 function attachVideoEndListener() {
   console.log('Attaching video end listeners...');
   
-  // Find all video elements on the page
   const videos = document.querySelectorAll('video');
   console.log(`Found ${videos.length} video element(s)`);
   
   videos.forEach((video, index) => {
-    // Remove existing listeners
     video.removeEventListener('ended', onVideoEnded);
     video.removeEventListener('play', onVideoPlay);
     video.removeEventListener('timeupdate', onTimeUpdate);
     
-    // Add new listeners
     video.addEventListener('ended', onVideoEnded);
     video.addEventListener('play', onVideoPlay);
     video.addEventListener('timeupdate', onTimeUpdate);
@@ -55,12 +53,11 @@ function attachVideoEndListener() {
     console.log(`Listener attached to video ${index}`);
   });
 
-  // Also observe for new video elements being added to the DOM
   if (!videoEndListener) {
     const observer = new MutationObserver((mutations) => {
       mutations.forEach((mutation) => {
         mutation.addedNodes.forEach((node) => {
-          if (node.nodeType === 1) { // Element node
+          if (node.nodeType === 1) {
             if (node.tagName === 'VIDEO') {
               console.log('New VIDEO element detected');
               node.removeEventListener('ended', onVideoEnded);
@@ -69,7 +66,6 @@ function attachVideoEndListener() {
               node.addEventListener('timeupdate', onTimeUpdate);
             }
             
-            // Also check for videos in children
             const childVideos = node.querySelectorAll?.('video') || [];
             if (childVideos.length > 0) {
               console.log(`Found ${childVideos.length} video(s) in new node`);
@@ -101,7 +97,6 @@ function detachVideoEndListener() {
     videoEndListener = null;
   }
 
-  // Remove event listeners from all videos
   const videos = document.querySelectorAll('video');
   videos.forEach((video) => {
     video.removeEventListener('ended', onVideoEnded);
@@ -115,17 +110,16 @@ function onVideoPlay() {
   if (isAutoScrollEnabled) {
     const videos = document.querySelectorAll('video');
     lastVideoElement = videos[0];
+    scrollAttemptCount = 0;
     console.log('Video started playing');
   }
 }
 
 function onTimeUpdate() {
-  // This helps us monitor video progress
   const video = lastVideoElement || document.querySelector('video');
   if (video && video.duration && !isNaN(video.duration)) {
     const timeRemaining = video.duration - video.currentTime;
     if (timeRemaining < 0.5 && timeRemaining > 0) {
-      // Video is almost done (within 0.5 seconds)
       console.log('Video almost ended, time remaining:', timeRemaining);
     }
   }
@@ -139,7 +133,6 @@ function onVideoEnded() {
 function startVideoMonitoring() {
   console.log('Starting video monitoring...');
   
-  // Monitor videos periodically to detect manual playback end or ended event not firing
   if (videoMonitorInterval) {
     clearInterval(videoMonitorInterval);
   }
@@ -152,11 +145,9 @@ function startVideoMonitoring() {
     
     const video = videos[0];
     
-    // Check if video is paused and time is at or near the end
     if (video.paused && video.duration && !isNaN(video.duration)) {
       const timeRemaining = video.duration - video.currentTime;
       
-      // If less than 0.1 seconds remaining and video is paused, it likely ended
       if (timeRemaining < 0.1 && timeRemaining >= 0) {
         console.log('📊 Video detected as ended via time monitoring:', video.currentTime, '/', video.duration);
         scrollToNextShort();
@@ -179,86 +170,131 @@ function scrollToNextShort() {
     return;
   }
 
-  console.log('⬇️ Scrolling to next short...');
+  scrollAttemptCount++;
+  console.log(`⬇️ Scrolling to next short (attempt ${scrollAttemptCount})...`);
 
-  // Small delay to ensure video is fully ended
   setTimeout(() => {
     let scrolled = false;
 
-    // Method 1: Find and click the next button (most reliable)
+    // Method 1: Try to find and click YouTube's navigation button using different selectors
     try {
-      console.log('Attempting Method 1: Next button click');
-      const nextButtons = document.querySelectorAll(
-        'button[aria-label*="next" i], ' +
-        'button[aria-label*="Next" i], ' +
-        '[role="button"][aria-label*="next" i], ' +
-        '[role="button"][aria-label*="Next" i]'
-      );
+      console.log('Method 1: Searching for navigation button...');
       
-      console.log(`Found ${nextButtons.length} potential next button(s)`);
-      
-      if (nextButtons.length > 0) {
-        for (let btn of nextButtons) {
-          try {
-            btn.click();
-            console.log('✅ Next button clicked successfully');
-            scrolled = true;
-            break;
-          } catch (e) {
-            console.log('Button click failed:', e);
-          }
+      // Look for buttons with specific ARIA labels or classes
+      const selectors = [
+        'button[aria-label*="Next"]',
+        'button[aria-label*="next"]',
+        '[role="button"][aria-label*="Next"]',
+        '[role="button"][aria-label*="next"]',
+        'button.yt-spec-button-shape-next',
+        'button[data-navigation-next]',
+        'a[href*="/shorts"]'
+      ];
+
+      for (let selector of selectors) {
+        const button = document.querySelector(selector);
+        if (button) {
+          console.log(`Found button with selector: ${selector}`);
+          button.click();
+          console.log('✅ Navigation button clicked');
+          scrolled = true;
+          break;
         }
       }
     } catch (e) {
-      console.log('Error finding next button:', e);
+      console.log('Error clicking navigation button:', e);
     }
 
+    // Method 2: Scroll the shorts container
     if (!scrolled) {
-      // Method 2: Dispatch keyboard event (ArrowDown)
       try {
-        console.log('Attempting Method 2: ArrowDown keyboard event');
+        console.log('Method 2: Scrolling shorts container...');
+        
+        // Find the shorts container
+        const container = document.querySelector('[role="main"]') || 
+                         document.querySelector('ytd-reel-video-renderer') ||
+                         document.querySelector('.shorts-container') ||
+                         document.querySelector('html');
+        
+        if (container) {
+          container.scrollBy({
+            top: window.innerHeight,
+            behavior: 'smooth'
+          });
+          console.log('✅ Container scrolled');
+          scrolled = true;
+        }
+      } catch (e) {
+        console.log('Error scrolling container:', e);
+      }
+    }
+
+    // Method 3: Use Page Down key
+    if (!scrolled) {
+      try {
+        console.log('Method 3: Simulating Page Down key...');
         const event = new KeyboardEvent('keydown', {
-          key: 'ArrowDown',
-          code: 'ArrowDown',
-          keyCode: 40,
-          which: 40,
+          key: 'PageDown',
+          code: 'PageDown',
+          keyCode: 34,
+          which: 34,
           bubbles: true,
           cancelable: true
         });
         
         document.dispatchEvent(event);
         window.dispatchEvent(event);
+        document.body.dispatchEvent(event);
         
-        const activeElement = document.activeElement;
-        if (activeElement) {
-          activeElement.dispatchEvent(event);
-        }
-        console.log('✅ Keyboard event dispatched');
+        console.log('✅ Page Down key simulated');
         scrolled = true;
       } catch (e) {
-        console.log('Error dispatching keyboard event:', e);
+        console.log('Error with Page Down key:', e);
       }
     }
 
+    // Method 4: Direct window scroll
     if (!scrolled) {
-      // Method 3: Scroll down the page
       try {
-        console.log('Attempting Method 3: Page scroll');
-        window.scrollBy({
-          top: window.innerHeight,
-          behavior: 'smooth'
-        });
-        console.log('✅ Page scrolled');
+        console.log('Method 4: Direct window scroll...');
+        window.scrollBy(0, window.innerHeight);
+        console.log('✅ Window scrolled directly');
         scrolled = true;
       } catch (e) {
-        console.log('Error scrolling:', e);
+        console.log('Error with direct scroll:', e);
+      }
+    }
+
+    // Method 5: Try clicking in the middle of the page (YouTube Shorts responds to clicks)
+    if (!scrolled && scrollAttemptCount < 3) {
+      try {
+        console.log('Method 5: Simulating click on page...');
+        const clickEvent = new MouseEvent('click', {
+          bubbles: true,
+          cancelable: true,
+          view: window,
+          clientX: window.innerWidth / 2,
+          clientY: window.innerHeight / 2
+        });
+        
+        document.body.dispatchEvent(clickEvent);
+        
+        // Then scroll
+        setTimeout(() => {
+          window.scrollBy(0, window.innerHeight);
+        }, 100);
+        
+        console.log('✅ Click and scroll attempted');
+        scrolled = true;
+      } catch (e) {
+        console.log('Error with click method:', e);
       }
     }
 
     if (scrolled) {
-      console.log('✅ Successfully scrolled to next short!');
+      console.log('✅ Successfully attempted scroll to next short!');
     } else {
-      console.log('❌ All scroll methods failed');
+      console.log('❌ All scroll methods exhausted');
     }
   }, 500);
 }
@@ -274,7 +310,7 @@ chrome.storage.sync.get(['autoScrollEnabled'], (result) => {
   }
 });
 
-// Re-attach listeners when page is visible again (tab switch)
+// Re-attach listeners when page is visible again
 document.addEventListener('visibilitychange', () => {
   console.log('Visibility changed:', document.hidden ? 'hidden' : 'visible');
   if (document.hidden) {
