@@ -4,37 +4,56 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Load saved settings
   chrome.storage.sync.get(['autoScrollEnabled'], (result) => {
-    toggleSwitch.checked = result.autoScrollEnabled || false;
+    toggleSwitch.checked = result.autoScrollEnabled ?? false;
     updateStatus();
   });
 
   // Toggle handler
   toggleSwitch.addEventListener('change', () => {
     const enabled = toggleSwitch.checked;
-    chrome.storage.sync.set({ autoScrollEnabled: enabled });
 
-    // Send message to content script
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      if (tabs[0]) {
-        chrome.tabs.sendMessage(tabs[0].id, {
-          action: 'toggle',
-          enabled: enabled
-        }).catch(() => {
-          console.log('Could not communicate with content script');
-        });
-      }
+    // Persist setting
+    chrome.storage.sync.set({
+      autoScrollEnabled: enabled
     });
+
+    // Notify the active tab
+    chrome.tabs.query(
+      {
+        active: true,
+        currentWindow: true
+      },
+      (tabs) => {
+        if (tabs[0]?.id) {
+          chrome.tabs.sendMessage(tabs[0].id, {
+            action: 'toggle',
+            enabled: enabled
+          }).catch(() => {
+            // Content script may not be available on this page.
+            console.debug('Could not communicate with content script');
+          });
+        }
+      }
+    );
 
     updateStatus();
   });
 
   function updateStatus() {
     if (toggleSwitch.checked) {
-      statusDiv.textContent = 'Status: Enabled';
       statusDiv.className = 'status active';
+
+      statusDiv.innerHTML = `
+        <span class="status-dot"></span>
+        <span>Auto-scroll is active</span>
+      `;
     } else {
-      statusDiv.textContent = 'Status: Disabled';
       statusDiv.className = 'status inactive';
+
+      statusDiv.innerHTML = `
+        <span class="status-dot"></span>
+        <span>Auto-scroll is off</span>
+      `;
     }
   }
 });
