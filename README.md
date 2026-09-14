@@ -1,132 +1,276 @@
-# YouTube Shorts Auto-Scroll Chrome Extension
+# YouTube Shorts Auto-Scroll
 
-Automatically advance to the next YouTube Shorts video when the current one ends.
+A lightweight Chrome extension that automatically moves to the next YouTube Short when the current video finishes playing.
 
-## Features
+No manual scrolling. No timers. Just let Shorts play.
 
-✨ **Smart Auto-Scroll**: Automatically advances to the next YouTube Short when the current video finishes playing
+## ✨ Features
 
-🎬 **Video-End Detection**: Uses YouTube's native video end events for accurate detection
+* **Automatic progression** — Automatically advances to the next Short when the current video ends.
+* **Native video detection** — Uses the browser's `video` `ended` event instead of polling.
+* **Dynamic page support** — Detects videos dynamically loaded by YouTube's SPA navigation.
+* **Lightweight** — Uses event listeners and `MutationObserver` instead of continuous polling.
+* **Persistent settings** — Your auto-scroll preference is saved using Chrome Storage.
+* **One-click control** — Enable or disable auto-scroll directly from the extension popup.
+* **Visibility-aware** — Pauses monitoring when the tab is hidden and resumes when it becomes visible.
 
-📡 **Dynamic Monitoring**: Detects new videos as they're loaded into the page
+## 🎬 How It Works
 
-⚡ **Lightweight**: Minimal resource usage, detaches listeners when tab is hidden
+YouTube Shorts is a single-page application, so videos are dynamically replaced without a traditional page reload.
 
-🎨 **Simple UI**: One-click toggle to enable/disable auto-scroll
+The extension handles this by:
 
-💾 **Persistent Settings**: Your preferences are saved and restored
+1. Detecting video elements on the Shorts page.
+2. Attaching a native `ended` event listener to the active video.
+3. Detecting newly added video elements using `MutationObserver`.
+4. When the video finishes, triggering navigation to the next Short.
+5. Removing unnecessary listeners when the tab is hidden.
+6. Resuming monitoring when the tab becomes visible again.
 
-## Installation
+```text
+YouTube Shorts
+      │
+      ▼
+  Video Element
+      │
+      │  ended
+      ▼
+ Content Script
+      │
+      ▼
+ Next Short
+```
 
-1. Clone or download this repository
-2. Open Chrome and go to `chrome://extensions/`
-3. Enable "Developer mode" (toggle in top-right corner)
-4. Click "Load unpacked" and select this extension folder
-5. The extension will appear in your Chrome toolbar
+## 🖥️ Extension UI
 
-## Usage
+The extension uses a minimal dark UI inspired by modern developer tools such as Linear and Raycast.
 
-1. Navigate to YouTube Shorts (youtube.com/shorts/[id])
-2. Click the extension icon in the Chrome toolbar
-3. Toggle the "Enable Auto-Scroll" switch
-4. Watch a Short - when it finishes, the extension automatically scrolls to the next one!
-5. Click the toggle again to disable
+The popup provides a single control:
 
-## How It Works
+```text
+┌─────────────────────────────────┐
+│  ▶  Shorts Auto-Scroll      v1  │
+│                                 │
+│  ┌───────────────────────────┐  │
+│  │  Auto-scroll          ◉── │  │
+│  │  Automatically move to    │  │
+│  │  the next Short when...   │  │
+│  └───────────────────────────┘  │
+│                                 │
+│  ● Auto-scroll is active        │
+│                                 │
+│  YouTube Shorts    Active       │
+└─────────────────────────────────┘
+```
 
-The extension:
-- Injects a content script into YouTube Shorts pages
-- Listens for the `ended` event on video elements
-- When a video finishes, it simulates an arrow down key press and smooth scroll
-- Automatically detects and monitors newly loaded videos
-- Pauses listeners when the tab is hidden to conserve resources
-- Resumes when you switch back to the tab
+## 📦 Installation
 
-## Technical Stack
+### Option 1 — Clone the repository
 
-- **Manifest V3**: Latest Chrome extension standards
-- **Content Scripts**: Injects functionality into YouTube pages
-- **Chrome Storage API**: Persistent configuration
-- **Chrome Messaging API**: Communication between popup and content scripts
-- **MutationObserver**: Detects dynamically loaded video elements
+```bash
+git clone https://github.com/Priince-011/youtube-shorts-auto-scroll.git
+cd youtube-shorts-auto-scroll
+```
 
-## Files
+### Option 2 — Download the repository
 
-- `manifest.json` - Extension configuration and permissions
-- `content.js` - Main auto-scroll logic (runs on YouTube pages)
-  - Handles video end detection
-  - Manages scroll functionality
-  - Monitors for new videos
-- `popup.html` - Extension popup interface
-- `popup.js` - Popup interaction logic
-- `background.js` - Service worker for extension lifecycle management
+Download the repository as a ZIP and extract it locally.
 
-## Settings
+### Load the extension in Chrome
 
-The extension stores the following settings:
-- `autoScrollEnabled` - Boolean to enable/disable auto-scroll (synced across devices)
+1. Open `chrome://extensions/`
+2. Enable **Developer mode**.
+3. Click **Load unpacked**.
+4. Select the extension directory.
+5. Pin the extension to your Chrome toolbar if desired.
 
-## How to Disable
+## 🚀 Usage
 
-Simply click the extension icon and toggle off the "Enable Auto-Scroll" switch. The extension will stop listening for video end events.
+1. Open a YouTube Shorts page:
 
-## Keyboard Shortcuts
+```text
+https://www.youtube.com/shorts/<video-id>
+```
 
-While auto-scroll is active, you can still:
-- Press **Space** or **K** to pause/play the current video
-- Press **J** to rewind 10 seconds
-- Press **L** to forward 10 seconds
-- Press **Arrow Down** manually to skip to next Short
-- Press **Arrow Up** to go back to previous Short
+2. Click the **Shorts Auto-Scroll** extension icon.
+3. Enable **Auto-scroll**.
+4. Play a Short.
+5. When the video finishes, the extension automatically moves to the next Short.
 
-## Troubleshooting
+To disable the functionality, simply toggle **Auto-scroll** off.
 
-**Extension not working?**
-- Make sure you're on a YouTube Shorts page (youtube.com/shorts/...)
-- Try refreshing the page after enabling auto-scroll
-- Check that the extension has permission for youtube.com in Chrome settings
-- Open DevTools (F12) and check the console for error messages
+## 🧩 Architecture
 
-**Settings not saving?**
-- Ensure sync is enabled in your Chrome profile
-- Try disabling and re-enabling the extension
-- Clear Chrome's cache and reload the extension
+The extension uses Chrome's Manifest V3 architecture.
 
-**Video not detected?**
-- Make sure the video element is playing correctly
-- YouTube Shorts videos should end naturally (not skip to end)
-- Check console logs: `Video ended, scrolling to next short...`
+```text
+┌─────────────────────┐
+│     popup.html      │
+│                     │
+│    Toggle UI        │
+└──────────┬──────────┘
+           │
+           │ Chrome Messaging API
+           ▼
+┌─────────────────────┐
+│      content.js     │
+│                     │
+│  Video detection    │
+│  End event handling │
+│  DOM monitoring     │
+│  Navigation         │
+└──────────┬──────────┘
+           │
+           ▼
+      YouTube Shorts
+```
 
-## Future Enhancements
+### Components
 
-- [ ] Add pause/play on user interaction
-- [ ] Add keyboard shortcuts (e.g., Ctrl+Shift+S to toggle)
-- [ ] Add statistics (videos watched, time spent)
-- [ ] Add theme customization (dark/light mode)
-- [ ] Add notification for auto-scroll status
-- [ ] Add whitelist/blacklist for specific channels
-- [ ] Add delay customization before scrolling to next video
+| File            | Responsibility                          |
+| --------------- | --------------------------------------- |
+| `manifest.json` | Extension configuration and permissions |
+| `content.js`    | Detects videos and handles auto-scroll  |
+| `popup.html`    | Extension popup UI                      |
+| `popup.js`      | Popup state and user interaction        |
+| `background.js` | Service worker / extension lifecycle    |
 
-## Known Limitations
+## 🛠️ Technical Stack
 
-- Only works on YouTube Shorts pages
-- Requires videos to end naturally (not manually skipped to end)
-- May not work if YouTube changes their video structure
+* **Chrome Extension Manifest V3**
+* **JavaScript**
+* **Chrome Storage API**
+* **Chrome Messaging API**
+* **MutationObserver**
+* **HTML/CSS**
 
-## Performance
+The extension intentionally avoids external libraries and frameworks.
 
-- **Minimal CPU usage**: Only listens for video end events
-- **Low memory footprint**: Detaches listeners when not needed
-- **Efficient DOM monitoring**: Uses optimized MutationObserver
+## 💾 Settings
 
-## License
+The extension currently stores one setting:
 
-MIT
+| Setting             | Type    | Description                               |
+| ------------------- | ------- | ----------------------------------------- |
+| `autoScrollEnabled` | Boolean | Enables or disables automatic progression |
 
-## Contributing
+The setting is stored using:
 
-Feel free to submit issues and enhancement requests!
+```javascript
+chrome.storage.sync
+```
 
-## Disclaimer
+This allows the preference to persist across browser sessions and, where Chrome Sync is available, across synced Chrome profiles.
 
-This is an unofficial Chrome extension. YouTube is a trademark of Google LLC. Use at your own discretion and in accordance with YouTube's Terms of Service.
+## ⌨️ YouTube Keyboard Controls
+
+The extension does not override YouTube's normal keyboard controls.
+
+While watching Shorts, YouTube's native controls remain available:
+
+| Key           | Action         |
+| ------------- | -------------- |
+| `Space` / `K` | Play / pause   |
+| `J`           | Rewind         |
+| `L`           | Forward        |
+| `Arrow Down`  | Next Short     |
+| `Arrow Up`    | Previous Short |
+
+## 🔧 Troubleshooting
+
+### Auto-scroll isn't working
+
+Make sure:
+
+* You are on a YouTube Shorts page.
+* The extension is enabled.
+* The page was refreshed after installing the extension.
+* Chrome has permission to run the extension on YouTube.
+
+You can inspect the page console using Chrome DevTools:
+
+```text
+Right click → Inspect → Console
+```
+
+### The extension doesn't detect the video
+
+YouTube frequently changes its internal DOM structure.
+
+Check that:
+
+* A `<video>` element exists on the page.
+* The video is playing normally.
+* There are no errors in the browser console.
+
+### Settings aren't being saved
+
+Make sure Chrome Sync/storage is functioning correctly.
+
+You can also try:
+
+1. Disable the extension.
+2. Reload `chrome://extensions/`.
+3. Enable the extension again.
+4. Reload YouTube.
+
+## ⚡ Performance
+
+The extension is designed to remain lightweight.
+
+### Event-driven video detection
+
+Rather than repeatedly checking the video playback position, the extension listens for the native:
+
+```javascript
+video.addEventListener('ended', ...)
+```
+
+event.
+
+### Efficient DOM monitoring
+
+`MutationObserver` is used to detect dynamically inserted video elements instead of continuously polling the DOM.
+
+### Tab visibility handling
+
+Video monitoring is paused when the browser tab is hidden and resumed when the user returns.
+
+## 🗺️ Roadmap
+
+Potential future improvements:
+
+* [ ] Configurable delay before moving to the next Short
+* [ ] Pause auto-scroll after manual interaction
+* [ ] Optional keyboard shortcut to toggle the extension
+* [ ] Watch statistics
+* [ ] Channel whitelist / blacklist
+* [ ] Configurable behavior after video completion
+* [ ] Chrome Web Store release
+
+## ⚠️ Known Limitations
+
+* Currently works only with YouTube Shorts.
+* Behavior may change if YouTube changes its video/navigation implementation.
+* Auto-scroll relies on the video reaching its natural end.
+* The extension is not affiliated with or endorsed by YouTube.
+
+## 🤝 Contributing
+
+Contributions, bug reports, and feature requests are welcome.
+
+If you find an issue:
+
+1. Check the existing issues.
+2. Open a new issue with reproduction steps.
+3. Include relevant console errors where possible.
+
+## 📄 License
+
+MIT License
+
+## ⚠️ Disclaimer
+
+This is an unofficial third-party Chrome extension.
+
+YouTube is a trademark of Google LLC. This project is not affiliated with, sponsored by, or endorsed by YouTube or Google.
