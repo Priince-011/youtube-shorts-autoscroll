@@ -89,33 +89,6 @@
       transform: translateX(26px);
     }
 
-    .settings-section {
-      background: rgba(255, 255, 255, 0.1);
-      padding: 15px;
-      border-radius: 8px;
-      backdrop-filter: blur(10px);
-    }
-
-    .settings-section label {
-      display: block;
-      font-size: 12px;
-      margin-bottom: 8px;
-      font-weight: 500;
-    }
-
-    .settings-section input[type="range"] {
-      width: 100%;
-      cursor: pointer;
-    }
-
-    .interval-display {
-      display: flex;
-      justify-content: space-between;
-      margin-top: 8px;
-      font-size: 12px;
-      opacity: 0.9;
-    }
-
     .status {
       text-align: center;
       font-size: 12px;
@@ -133,6 +106,13 @@
       background: rgba(244, 67, 54, 0.3);
       color: #ffcdd2;
     }
+
+    .info-text {
+      font-size: 12px;
+      opacity: 0.8;
+      text-align: center;
+      line-height: 1.4;
+    }
   </style>
 </head>
 <body>
@@ -147,14 +127,8 @@
       </label>
     </div>
 
-    <div class="settings-section">
-      <label for="intervalSlider">Scroll Interval (seconds)</label>
-      <input type="range" id="intervalSlider" min="2" max="15" value="5" step="1">
-      <div class="interval-display">
-        <span>2s</span>
-        <span id="intervalValue">5s</span>
-        <span>15s</span>
-      </div>
+    <div class="info-text">
+      ✨ Automatically scrolls to the next Short when the current video ends
     </div>
 
     <div class="status inactive" id="status">Status: Disabled</div>
