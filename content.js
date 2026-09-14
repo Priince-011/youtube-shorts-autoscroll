@@ -1,8 +1,7 @@
 // YouTube Shorts Auto-Scroll Extension
 
 let isAutoScrollEnabled = false;
-let scrollInterval = 5000; // 5 seconds between scrolls
-let scrollTimer = null;
+let videoEndListener = null;
 
 // Listen for messages from popup
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
@@ -14,36 +13,72 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       stopAutoScroll();
     }
     sendResponse({ status: isAutoScrollEnabled ? 'enabled' : 'disabled' });
-  } else if (request.action === 'setInterval') {
-    scrollInterval = request.interval * 1000;
-    if (isAutoScrollEnabled) {
-      stopAutoScroll();
-      startAutoScroll();
-    }
-    sendResponse({ status: 'interval updated' });
   }
 });
 
 function startAutoScroll() {
-  if (scrollTimer !== null) return; // Already running
-
-  scrollTimer = setInterval(() => {
-    scrollToNextShort();
-  }, scrollInterval);
-
   console.log('YouTube Shorts Auto-Scroll: Started');
+  attachVideoEndListener();
 }
 
 function stopAutoScroll() {
-  if (scrollTimer !== null) {
-    clearInterval(scrollTimer);
-    scrollTimer = null;
-  }
   console.log('YouTube Shorts Auto-Scroll: Stopped');
+  detachVideoEndListener();
+}
+
+function attachVideoEndListener() {
+  // Find all video elements on the page
+  const videos = document.querySelectorAll('video');
+  
+  videos.forEach((video) => {
+    // Remove existing listener if any
+    video.removeEventListener('ended', scrollToNextShort);
+    
+    // Add new listener for video end event
+    video.addEventListener('ended', scrollToNextShort);
+  });
+
+  // Also observe for new video elements being added to the DOM
+  if (!videoEndListener) {
+    const observer = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        mutation.addedNodes.forEach((node) => {
+          if (node.tagName === 'VIDEO') {
+            node.removeEventListener('ended', scrollToNextShort);
+            node.addEventListener('ended', scrollToNextShort);
+            console.log('New video detected, added end listener');
+          }
+        });
+      });
+    });
+
+    videoEndListener = observer;
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true
+    });
+  }
+}
+
+function detachVideoEndListener() {
+  if (videoEndListener) {
+    videoEndListener.disconnect();
+    videoEndListener = null;
+  }
+
+  // Remove event listeners from all videos
+  const videos = document.querySelectorAll('video');
+  videos.forEach((video) => {
+    video.removeEventListener('ended', scrollToNextShort);
+  });
 }
 
 function scrollToNextShort() {
-  // Method 1: Simulate arrow down key press
+  if (!isAutoScrollEnabled) return;
+
+  console.log('Video ended, scrolling to next short...');
+
+  // Simulate arrow down key press (YouTube Shorts responds to this)
   const arrowDownEvent = new KeyboardEvent('keydown', {
     key: 'ArrowDown',
     code: 'ArrowDown',
@@ -53,20 +88,32 @@ function scrollToNextShort() {
   });
   document.dispatchEvent(arrowDownEvent);
 
-  // Method 2: Scroll down the page
-  window.scrollBy({
-    top: window.innerHeight,
-    behavior: 'smooth'
-  });
-
-  console.log('Scrolling to next short...');
+  // Also scroll down smoothly
+  setTimeout(() => {
+    window.scrollBy({
+      top: window.innerHeight,
+      behavior: 'smooth'
+    });
+  }, 100);
 }
 
 // Load saved settings on page load
-chrome.storage.sync.get(['autoScrollEnabled', 'scrollInterval'], (result) => {
+chrome.storage.sync.get(['autoScrollEnabled'], (result) => {
   if (result.autoScrollEnabled) {
     isAutoScrollEnabled = true;
-    scrollInterval = (result.scrollInterval || 5) * 1000;
     startAutoScroll();
+  }
+});
+
+// Re-attach listeners when page is visible again (tab switch)
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    if (isAutoScrollEnabled) {
+      detachVideoEndListener();
+    }
+  } else {
+    if (isAutoScrollEnabled) {
+      attachVideoEndListener();
+    }
   }
 });
